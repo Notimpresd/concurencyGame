@@ -29,6 +29,7 @@ The server uses locks with timeouts to prevent players from being stuck if they 
 - GameServer.java    // Server that handles connections and game logic.
 - GameClient.java    // Client that players use to collect resources.
   
-**License
-**Free to use for educational purposes.
+**License**
+
+Free to use for educational purposes.
 

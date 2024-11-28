@@ -8,9 +8,8 @@ Multiplayer: Multiple players can connect to the server.
 Concurrency: Handles multiple players collecting resources at the same time.
 Deadlock Prevention: Prevents players from getting stuck while collecting resources.
 
-**How to Run
-
-**1. Start the Server
+**How to Run**
+1. Start the Server
 Run GameServer.java in IntelliJ. The server will listen on port 12345.
 2. Start the Clients
 Run GameClient.java in IntelliJ to open a client window.
@@ -19,8 +18,8 @@ You can start multiple client windows for more players.
 Click the "Collect Resource" button to gather resources.
 Collect 10 resources to win.
 
-Deadlock Prevention
-The server uses locks with timeouts to prevent players from being stuck if they try to collect resources at the same time.
+**Deadlock Prevention
+**The server uses locks with timeouts to prevent players from being stuck if they try to collect resources at the same time.
 **Project Structure
 **
 - GameServer.java    // Server that handles connections and game logic.

@@ -14,8 +14,8 @@ public class GameServer {
     }
 
     public void startServer() {
-        try (ServerSocket serverSocket = new ServerSocket(12345)) {
-            System.out.println("Server started on port 12345");
+        try (ServerSocket serverSocket = new ServerSocket(1234)) {
+            System.out.println("Server started on port 1234");
             while (true) {
                 Socket clientSocket = serverSocket.accept();
                 new Thread(new ClientHandler(clientSocket)).start();

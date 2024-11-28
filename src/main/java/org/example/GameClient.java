@@ -15,7 +15,7 @@ public class GameClient {
 
     public void startClient() {
         try {
-            socket = new Socket("localhost", 12345);
+            socket = new Socket("localhost", 1234);
             out = new PrintWriter(socket.getOutputStream(), true);
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 

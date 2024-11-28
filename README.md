@@ -18,10 +18,9 @@ You can start multiple client windows for more players.
 Click the "Collect Resource" button to gather resources.
 Collect 10 resources to win.
 
-**Deadlock Prevention
-**The server uses locks with timeouts to prevent players from being stuck if they try to collect resources at the same time.
-**Project Structure
-**
+**Deadlock Prevention**
+The server uses locks with timeouts to prevent players from being stuck if they try to collect resources at the same time.
+**Project Structure**
 - GameServer.java    // Server that handles connections and game logic.
 - GameClient.java    // Client that players use to collect resources.
   

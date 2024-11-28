@@ -1,5 +1,6 @@
 **Resource Collector Game - Multiplayer**
 **Overview**
+
 A simple multiplayer game where players collect resources to win. The first player to collect 10 resources wins. The game uses a server to handle multiple players, with deadlock prevention to ensure smooth gameplay.
 
 **Features**

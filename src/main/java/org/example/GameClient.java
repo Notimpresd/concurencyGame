@@ -95,6 +95,13 @@ public class GameClient extends JFrame {
                         gameButton.setText("CLICK!");
                         canClick = true;
                     });
+                } else if (inputLine.equals("RED")) {
+                    clientLog("RED signal received!");
+                    SwingUtilities.invokeLater(() -> {
+                        gameButton.setBackground(Color.RED);
+                        gameButton.setText("Wait for Game");
+                        canClick = false;
+                    });
                 } else if (inputLine.startsWith("WINNER:")) {
                     String winner = inputLine.substring(7);
                     clientLog("Winner announced: " + winner);
@@ -119,7 +126,7 @@ public class GameClient extends JFrame {
 
     public static void main(String[] args) {
         // Allow specifying server IP via command line or use default
-        String serverIp = args.length > 0 ? args[0] : "localhost";
+        String serverIp =  "192.168.0.107";
 
         SwingUtilities.invokeLater(() -> {
             GameClient client = new GameClient(serverIp);

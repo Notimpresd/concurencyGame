@@ -110,6 +110,10 @@ public class GameServer {
 
                 // Update the GUI
                 GameServerGUI.addPlayerToPanel(clientName, clientScore);
+// Send the initial game state (GREEN or RED)
+                if (!gameEnded) {
+                    sendMessage("GREEN");
+                }
 
                 String inputLine;
                 while ((inputLine = in.readLine()) != null) {

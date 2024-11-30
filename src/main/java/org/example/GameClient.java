@@ -1,9 +1,9 @@
 
 import javax.swing.*;
-        import java.awt.*;
-        import java.io.*;
-        import java.net.*;
-        import java.time.LocalDateTime;
+import java.awt.*;
+import java.io.*;
+import java.net.*;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 public class GameClient extends JFrame {

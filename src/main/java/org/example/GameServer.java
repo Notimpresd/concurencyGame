@@ -1,9 +1,12 @@
+import java.awt.*;
 import java.io.*;
 import java.net.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.*;
+import javax.swing.*;
 
 public class GameServer {
     private static final int PORT = 5000;
@@ -11,6 +14,7 @@ public class GameServer {
     private static Random random = new Random();
     private static ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static Semaphore clientSemaphore = new Semaphore(1);  // Semaphore to manage concurrent access to clients list
 
     // Centralized logging method
     private static void serverLog(String message) {
@@ -19,6 +23,11 @@ public class GameServer {
     }
 
     public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            GameServerGUI serverGUI = new GameServerGUI();
+            serverGUI.setVisible(true);
+        });
+
         try {
             ServerSocket serverSocket = new ServerSocket(PORT);
             serverLog("Game Server started on port " + PORT);
@@ -68,6 +77,7 @@ public class GameServer {
         private String clientName;
         private String clientIp;
         private int clientScore = 0;
+        private JPanel playerPanel;  // Panel for GUI display
 
         public ClientHandler(Socket socket) {
             this.socket = socket;
@@ -85,6 +95,9 @@ public class GameServer {
 
                 // Log client connection details
                 serverLog("Client " + clientName + " connected from IP: " + clientIp);
+
+                // Update the GUI
+                GameServerGUI.addPlayerToPanel(clientName, clientScore);
 
                 String inputLine;
                 while ((inputLine = in.readLine()) != null) {
@@ -107,6 +120,9 @@ public class GameServer {
                 } catch (IOException e) {
                     serverLog("Error closing socket for " + clientName + ": " + e.getMessage());
                 }
+
+                // Remove player from the GUI
+                GameServerGUI.removePlayerFromPanel(clientName);
             }
         }
 
@@ -119,6 +135,71 @@ public class GameServer {
             for (ClientHandler client : clients) {
                 client.sendMessage("WINNER:" + winner);
             }
+
+            // Update the winner score using semaphore to prevent concurrent modification
+            try {
+                clientSemaphore.acquire();
+                if (winner.equals(clientName)) {
+                    clientScore++;
+                    GameServerGUI.updatePlayerScore(clientName, clientScore);
+                }
+            } catch (InterruptedException e) {
+                serverLog("Error updating score: " + e.getMessage());
+            } finally {
+                clientSemaphore.release();
+            }
+        }
+    }
+
+    public static class GameServerGUI extends JFrame {
+        private static final int WIDTH = 600;
+        private static final int HEIGHT = 400;
+        private static JPanel playerPanelContainer;
+        private static Map<String, JPanel> playerPanels = new HashMap<>();
+        private static Map<String, JLabel> scoreLabels = new HashMap<>();
+
+        public GameServerGUI() {
+            setTitle("Game Server");
+            setSize(WIDTH, HEIGHT);
+            setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+            setLayout(new BorderLayout());
+
+            playerPanelContainer = new JPanel();
+            playerPanelContainer.setLayout(new BoxLayout(playerPanelContainer, BoxLayout.Y_AXIS));
+            add(new JScrollPane(playerPanelContainer), BorderLayout.CENTER);
+        }
+
+        public static void addPlayerToPanel(String playerName, int initialScore) {
+            JPanel playerPanel = new JPanel();
+            playerPanel.setLayout(new FlowLayout());
+            JLabel playerLabel = new JLabel(playerName);
+            JLabel scoreLabel = new JLabel("Score: " + initialScore);
+            playerPanel.add(playerLabel);
+            playerPanel.add(scoreLabel);
+            playerPanelContainer.add(playerPanel);
+            playerPanels.put(playerName, playerPanel);
+            scoreLabels.put(playerName, scoreLabel);
+
+            playerPanelContainer.revalidate();
+            playerPanelContainer.repaint();
+        }
+
+        public static void updatePlayerScore(String playerName, int newScore) {
+            JLabel scoreLabel = scoreLabels.get(playerName);
+            if (scoreLabel != null) {
+                scoreLabel.setText("Score: " + newScore);
+            }
+        }
+
+        public static void removePlayerFromPanel(String playerName) {
+            JPanel playerPanel = playerPanels.get(playerName);
+            if (playerPanel != null) {
+                playerPanelContainer.remove(playerPanel);
+                playerPanels.remove(playerName);
+                scoreLabels.remove(playerName);
+            }
+            playerPanelContainer.revalidate();
+            playerPanelContainer.repaint();
         }
     }
 }

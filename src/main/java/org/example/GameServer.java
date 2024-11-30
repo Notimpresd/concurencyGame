@@ -25,6 +25,15 @@ public class GameServer {
     }
 
     public static void main(String[] args) {
+        // Print the server's local IP address
+        try {
+            InetAddress serverAddress = InetAddress.getLocalHost();
+            String serverIp = serverAddress.getHostAddress();
+            serverLog("Server IP Address: " + serverIp);
+        } catch (UnknownHostException e) {
+            serverLog("Unable to retrieve server IP address.");
+        }
+
         SwingUtilities.invokeLater(() -> {
             GameServerGUI serverGUI = new GameServerGUI();
             serverGUI.setVisible(true);
@@ -246,7 +255,7 @@ public class GameServer {
 
         @Override
         public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
-            g.setColor(Color.LIGHT_GRAY);
+            g.setColor(Color.lightGray);
             g.fillRoundRect(x, y, width - 1, height - 1, radius, radius);
         }
     }

@@ -178,7 +178,7 @@ public class GameServer {
 
     public static class GameServerGUI extends JFrame {
         private static final int WIDTH = 600;
-        private static final int HEIGHT = 400;
+        private static final int HEIGHT = 150;
         private static JPanel playerPanelContainer;
         private static Map<String, JPanel> playerPanels = new HashMap<>();
         private static Map<String, JLabel> scoreLabels = new HashMap<>();
@@ -188,6 +188,7 @@ public class GameServer {
             setSize(WIDTH, HEIGHT);
             setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             setLayout(new BorderLayout());
+            setAlwaysOnTop(true);
 
             playerPanelContainer = new JPanel();
             playerPanelContainer.setLayout(new GridLayout(0, 3));  // Three columns for player panels
@@ -199,7 +200,7 @@ public class GameServer {
             playerPanel.setLayout(new BoxLayout(playerPanel, BoxLayout.Y_AXIS));
             playerPanel.setBorder(new RoundedBorder(15));  // Rounded corners
             playerPanel.setBackground(Color.CYAN);
-            playerPanel.setPreferredSize(new Dimension(150, 150));  // Size for each player panel
+            playerPanel.setPreferredSize(new Dimension(150, 100));  // Size for each player panel
 
             JLabel playerLabel = new JLabel(playerName);
             playerLabel.setFont(new Font("Arial", Font.BOLD, 14));

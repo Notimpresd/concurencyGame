@@ -32,6 +32,7 @@ public class GameClient extends JFrame {
         setSize(400, 300);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
+        setAlwaysOnTop(true);
 
         // Initialize components
         gameButton = new JButton("Wait for Game");

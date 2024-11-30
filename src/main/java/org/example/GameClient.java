@@ -1,66 +1,78 @@
 import javax.swing.*;
 import java.awt.*;
-import java.io.*;
-import java.net.*;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.net.Socket;
 
 public class GameClient {
-    private Socket socket;
-    private PrintWriter out;
-    private BufferedReader in;
-    private JLabel statusLabel;
+    private static final String SERVER_ADDRESS = "127.0.0.1"; // Replace with your server's public IP for remote play
+    private static final int PORT = 12345;
+
+    private int score = 0;
+    private boolean buttonEnabled = false;
+    private final Object lock = new Object();
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new GameClient().startClient());
+        new GameClient().startClient();
     }
 
     public void startClient() {
-        try {
-            socket = new Socket("localhost", 1234);
-            out = new PrintWriter(socket.getOutputStream(), true);
-            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-
-            createAndShowGUI();
-            listenForServerMessages();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void createAndShowGUI() {
-        JFrame frame = new JFrame("Resource Collector Game");
+        JFrame frame = new JFrame("Game Client");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(300, 200);
 
-        JButton collectButton = new JButton("Collect Resource");
-        collectButton.addActionListener(e -> collectResource());
+        JLabel scoreLabel = new JLabel("Score: 0", SwingConstants.CENTER);
+        JButton button = new JButton("Press Me");
+        button.setEnabled(false);
+        button.setBackground(Color.RED);
 
-        statusLabel = new JLabel("Collect resources to win!", SwingConstants.CENTER);
-
-        JPanel panel = new JPanel();
-        panel.setLayout(new BorderLayout());
-        panel.add(collectButton, BorderLayout.CENTER);
-        panel.add(statusLabel, BorderLayout.SOUTH);
-
-        frame.add(panel);
-        frame.setVisible(true);
-    }
-
-    private void listenForServerMessages() {
-        new Thread(() -> {
-            try {
-                String message;
-                while ((message = in.readLine()) != null) {
-                    statusLabel.setText(message);
+        button.addActionListener(e -> {
+            synchronized (lock) {
+                if (buttonEnabled) {
+                    score++;
+                    scoreLabel.setText("Score: " + score);
+                    buttonEnabled = false;
+                    button.setBackground(Color.RED);
+                    button.setEnabled(false);
+                    sendToServer("PRESSED");
                 }
-            } catch (IOException e) {
-                e.printStackTrace();
             }
-        }).start();
+        });
+
+        frame.setLayout(new BorderLayout());
+        frame.add(scoreLabel, BorderLayout.NORTH);
+        frame.add(button, BorderLayout.CENTER);
+        frame.setVisible(true);
+
+        try (Socket socket = new Socket(SERVER_ADDRESS, PORT);
+             var in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+             var out = new PrintWriter(socket.getOutputStream(), true)) {
+
+            while (true) {
+                String response = in.readLine();
+                if ("GREEN".equals(response)) {
+                    synchronized (lock) {
+                        buttonEnabled = true;
+                        button.setBackground(Color.GREEN);
+                        button.setEnabled(true);
+                    }
+                } else if ("RED".equals(response)) {
+                    synchronized (lock) {
+                        buttonEnabled = false;
+                        button.setBackground(Color.RED);
+                        button.setEnabled(false);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(frame, "Disconnected from server: " + e.getMessage());
+            System.exit(1);
+        }
     }
 
-    private void collectResource() {
-        if (out != null) {
-            out.println("COLLECT_RESOURCE");
-        }
+    private void sendToServer(String message) {
+        // Notify the server that the client pressed the button
+        System.out.println("Message to server: " + message);
     }
 }

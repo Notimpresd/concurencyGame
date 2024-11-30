@@ -1,78 +1,102 @@
 import javax.swing.*;
 import java.awt.*;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
-import java.net.Socket;
+import java.io.*;
+import java.net.*;
 
-public class GameClient {
-    private static final String SERVER_ADDRESS = "127.0.0.1"; // Replace with your server's public IP for remote play
-    private static final int PORT = 12345;
-
+public class GameClient extends JFrame {
+    private JButton gameButton;
+    private JLabel scoreLabel;
+    private JLabel nameLabel;
     private int score = 0;
-    private boolean buttonEnabled = false;
-    private final Object lock = new Object();
+    private boolean canClick = false;
 
-    public static void main(String[] args) {
-        new GameClient().startClient();
-    }
+    private Socket socket;
+    private BufferedReader in;
+    private PrintWriter out;
 
-    public void startClient() {
-        JFrame frame = new JFrame("Game Client");
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        frame.setSize(300, 200);
+    public GameClient() {
+        setTitle("Reaction Game");
+        setSize(400, 300);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLayout(new BorderLayout());
 
-        JLabel scoreLabel = new JLabel("Score: 0", SwingConstants.CENTER);
-        JButton button = new JButton("Press Me");
-        button.setEnabled(false);
-        button.setBackground(Color.RED);
+        // Initialize components
+        gameButton = new JButton("Wait for Game");
+        gameButton.setBackground(Color.RED);
+        gameButton.setOpaque(true);
+        gameButton.setBorderPainted(false);
 
-        button.addActionListener(e -> {
-            synchronized (lock) {
-                if (buttonEnabled) {
-                    score++;
-                    scoreLabel.setText("Score: " + score);
-                    buttonEnabled = false;
-                    button.setBackground(Color.RED);
-                    button.setEnabled(false);
-                    sendToServer("PRESSED");
-                }
+        scoreLabel = new JLabel("Score: 0");
+        nameLabel = new JLabel("Name: Connecting...");
+
+        // Add components
+        add(gameButton, BorderLayout.CENTER);
+        add(scoreLabel, BorderLayout.NORTH);
+        add(nameLabel, BorderLayout.SOUTH);
+
+        // Button click listener
+        gameButton.addActionListener(e -> {
+            if (canClick) {
+                out.println("CLICK");
+                canClick = false;
+                gameButton.setBackground(Color.RED);
             }
         });
 
-        frame.setLayout(new BorderLayout());
-        frame.add(scoreLabel, BorderLayout.NORTH);
-        frame.add(button, BorderLayout.CENTER);
-        frame.setVisible(true);
+        // Connect to server
+        connectToServer();
+    }
 
-        try (Socket socket = new Socket(SERVER_ADDRESS, PORT);
-             var in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-             var out = new PrintWriter(socket.getOutputStream(), true)) {
+    private void connectToServer() {
+        try {
+            socket = new Socket("localhost", 5000);
+            in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            out = new PrintWriter(socket.getOutputStream(), true);
 
-            while (true) {
-                String response = in.readLine();
-                if ("GREEN".equals(response)) {
-                    synchronized (lock) {
-                        buttonEnabled = true;
-                        button.setBackground(Color.GREEN);
-                        button.setEnabled(true);
-                    }
-                } else if ("RED".equals(response)) {
-                    synchronized (lock) {
-                        buttonEnabled = false;
-                        button.setBackground(Color.RED);
-                        button.setEnabled(false);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(frame, "Disconnected from server: " + e.getMessage());
-            System.exit(1);
+            // Start listening for server messages
+            new Thread(this::listenForServerMessages).start();
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(this, "Could not connect to server");
+            e.printStackTrace();
         }
     }
 
-    private void sendToServer(String message) {
-        // Notify the server that the client pressed the button
-        System.out.println("Message to server: " + message);
+    private void listenForServerMessages() {
+        try {
+            String inputLine;
+            while ((inputLine = in.readLine()) != null) {
+                if (inputLine.startsWith("NAME:")) {
+                    String name = inputLine.substring(5);
+                    nameLabel.setText("Name: " + name);
+                } else if (inputLine.equals("GREEN")) {
+                    SwingUtilities.invokeLater(() -> {
+                        gameButton.setBackground(Color.GREEN);
+                        gameButton.setText("CLICK!");
+                        canClick = true;
+                    });
+                } else if (inputLine.startsWith("WINNER:")) {
+                    String winner = inputLine.substring(7);
+                    SwingUtilities.invokeLater(() -> {
+                        gameButton.setBackground(Color.RED);
+                        gameButton.setText("Wait for Game");
+                        canClick = false;
+
+                        if (winner.equals(nameLabel.getText().substring(6))) {
+                            score++;
+                            scoreLabel.setText("Score: " + score);
+                        }
+                    });
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            GameClient client = new GameClient();
+            client.setVisible(true);
+        });
     }
 }

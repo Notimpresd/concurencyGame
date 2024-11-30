@@ -1,6 +1,4 @@
-Here’s a sample `README.md` for your multiplayer game with concurrency handling using semaphores:
 
----
 
 # Multiplayer Game with Concurrency Management
 
@@ -103,7 +101,3 @@ This is a simple multiplayer game implemented in Java where multiple players can
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-This `README.md` file provides a clear overview of the game, its setup, and how concurrency issues are handled. You can adapt it further as needed based on specific project details or features you may want to add.

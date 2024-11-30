@@ -7,6 +7,7 @@ import java.util.*;
 import java.util.List;
 import java.util.concurrent.*;
 import javax.swing.*;
+import javax.swing.border.Border;
 
 public class GameServer {
     private static final int PORT = 5000;
@@ -15,6 +16,7 @@ public class GameServer {
     private static ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static Semaphore clientSemaphore = new Semaphore(1);  // Semaphore to manage concurrent access to clients list
+    private static final int WINNING_SCORE = 5; // Game ends when a player reaches 5 points
 
     // Centralized logging method
     private static void serverLog(String message) {
@@ -78,6 +80,7 @@ public class GameServer {
         private String clientIp;
         private int clientScore = 0;
         private JPanel playerPanel;  // Panel for GUI display
+        private boolean gameEnded = false;  // Flag to check if the game has ended
 
         public ClientHandler(Socket socket) {
             this.socket = socket;
@@ -101,7 +104,7 @@ public class GameServer {
 
                 String inputLine;
                 while ((inputLine = in.readLine()) != null) {
-                    if (inputLine.equals("CLICK")) {
+                    if (inputLine.equals("CLICK") && !gameEnded) {
                         // Log client click
                         serverLog("Client " + clientName + " clicked the button");
 
@@ -142,6 +145,15 @@ public class GameServer {
                 if (winner.equals(clientName)) {
                     clientScore++;
                     GameServerGUI.updatePlayerScore(clientName, clientScore);
+
+                    // Check if the game ends
+                    if (clientScore >= WINNING_SCORE && !gameEnded) {
+                        gameEnded = true;
+                        serverLog(clientName + " wins the game!");
+                        for (ClientHandler clientHandler : clients) {
+                            clientHandler.sendMessage("GAME_OVER:" + clientName + " wins!");
+                        }
+                    }
                 }
             } catch (InterruptedException e) {
                 serverLog("Error updating score: " + e.getMessage());
@@ -165,18 +177,29 @@ public class GameServer {
             setLayout(new BorderLayout());
 
             playerPanelContainer = new JPanel();
-            playerPanelContainer.setLayout(new BoxLayout(playerPanelContainer, BoxLayout.Y_AXIS));
+            playerPanelContainer.setLayout(new GridLayout(0, 3));  // Three columns for player panels
             add(new JScrollPane(playerPanelContainer), BorderLayout.CENTER);
         }
 
         public static void addPlayerToPanel(String playerName, int initialScore) {
             JPanel playerPanel = new JPanel();
-            playerPanel.setLayout(new FlowLayout());
+            playerPanel.setLayout(new BoxLayout(playerPanel, BoxLayout.Y_AXIS));
+            playerPanel.setBorder(new RoundedBorder(15));  // Rounded corners
+            playerPanel.setBackground(Color.CYAN);
+            playerPanel.setPreferredSize(new Dimension(150, 150));  // Size for each player panel
+
             JLabel playerLabel = new JLabel(playerName);
+            playerLabel.setFont(new Font("Arial", Font.BOLD, 14));
+            playerLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
             JLabel scoreLabel = new JLabel("Score: " + initialScore);
+            scoreLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+            scoreLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
             playerPanel.add(playerLabel);
             playerPanel.add(scoreLabel);
             playerPanelContainer.add(playerPanel);
+
             playerPanels.put(playerName, playerPanel);
             scoreLabels.put(playerName, scoreLabel);
 
@@ -200,6 +223,31 @@ public class GameServer {
             }
             playerPanelContainer.revalidate();
             playerPanelContainer.repaint();
+        }
+    }
+
+    // Custom border class for rounded corners
+    public static class RoundedBorder implements Border {
+        private int radius;
+
+        public RoundedBorder(int radius) {
+            this.radius = radius;
+        }
+
+        @Override
+        public Insets getBorderInsets(Component c) {
+            return new Insets(radius, radius, radius, radius);
+        }
+
+        @Override
+        public boolean isBorderOpaque() {
+            return true;
+        }
+
+        @Override
+        public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
+            g.setColor(Color.LIGHT_GRAY);
+            g.fillRoundRect(x, y, width - 1, height - 1, radius, radius);
         }
     }
 }

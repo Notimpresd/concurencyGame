@@ -1,11 +1,11 @@
 package org.example;
+
 import javax.swing.*;
 import java.awt.*;
 import java.io.*;
 import java.net.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 
 public class GameClient extends JFrame {
     private JButton gameButton;
@@ -17,10 +17,9 @@ public class GameClient extends JFrame {
     private Socket socket;
     private BufferedReader in;
     private PrintWriter out;
-    private String serverIp;
+    private String serverIp = "192.168.0.107"; // Set a predefined server IP
     private static final int PORT = 5000;
     private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private RoomListModel roomListModel;
     private CardLayout cardLayout;
     private JPanel mainPanel;
 
@@ -34,56 +33,8 @@ public class GameClient extends JFrame {
         mainPanel = new JPanel(cardLayout);
         add(mainPanel, BorderLayout.CENTER);
 
-        initializeRoomSelectionUI();
         initializeGameUI();
-        updateRoomStatuses();
     }
-
-
-    private void initializeRoomSelectionUI() {
-        JPanel roomSelectionPanel = new JPanel(new BorderLayout());
-
-        JLabel titleLabel = new JLabel("Available Rooms", SwingConstants.CENTER);
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
-        roomSelectionPanel.add(titleLabel, BorderLayout.NORTH);
-        setAlwaysOnTop(true);
-
-        roomListModel = new RoomListModel();
-        JList<Room> roomList = new JList<>(roomListModel);
-        roomList.setCellRenderer(new RoomCellRenderer());
-        JScrollPane scrollPane = new JScrollPane(roomList);
-        roomSelectionPanel.add(scrollPane, BorderLayout.CENTER);
-
-        JButton connectButton = new JButton("Connect");
-        connectButton.addActionListener(e -> {
-            Room selectedRoom = roomList.getSelectedValue();
-            if (selectedRoom != null && selectedRoom.isOnline()) {
-                serverIp = selectedRoom.getIp();
-                cardLayout.show(mainPanel, "GameUI");
-                connectToServer();
-            } else {
-                JOptionPane.showMessageDialog(this, "Please select an online room to connect!");
-            }
-        });
-        roomSelectionPanel.add(connectButton, BorderLayout.SOUTH);
-
-        mainPanel.add(roomSelectionPanel, "RoomSelection");
-        cardLayout.show(mainPanel, "RoomSelection");
-
-        // Mock available rooms
-        List<Room> availableRooms = List.of(
-                new Room("Room 1", "192.168.0.101"),
-                new Room("Room 2", "192.168.0.102"),
-                new Room("Room 3", "192.168.0.103"),
-                new Room("Room 4", "192.168.0.104"),
-                new Room("Room 5", "192.168.0.105"),
-                new Room("Room 6", "192.168.0.106"),
-                new Room("Room 7", "192.168.0.107"),
-                new Room("Room 8", "192.168.0.108")
-        );
-        availableRooms.forEach(roomListModel::addElement);
-    }
-
 
     private void initializeGameUI() {
         JPanel gamePanel = new JPanel(new BorderLayout());
@@ -104,10 +55,10 @@ public class GameClient extends JFrame {
 
         gamePanel.add(gameButton, BorderLayout.CENTER);
 
-        JButton backButton = new JButton("Back to Rooms");
+        JButton backButton = new JButton("Disconnect");
         backButton.addActionListener(e -> {
             disconnectFromServer();
-            cardLayout.show(mainPanel, "RoomSelection");
+            JOptionPane.showMessageDialog(this, "Disconnected from server.");
         });
         gamePanel.add(backButton, BorderLayout.SOUTH);
 
@@ -121,6 +72,10 @@ public class GameClient extends JFrame {
         });
 
         mainPanel.add(gamePanel, "GameUI");
+        cardLayout.show(mainPanel, "GameUI");
+
+        // Connect directly to the predefined server
+        connectToServer();
     }
 
     private void connectToServer() {
@@ -188,33 +143,6 @@ public class GameClient extends JFrame {
         }
     }
 
-    private void updateRoomStatuses() {
-        new Thread(() -> {
-            while (true) {
-                for (int i = 0; i < roomListModel.size(); i++) {
-                    Room room = roomListModel.get(i);
-                    boolean isOnline = isServerOnline(room.getIp(), PORT);
-                    room.setOnline(isOnline);
-                }
-                SwingUtilities.invokeLater(roomListModel::refresh);
-                try {
-                    Thread.sleep(100); // Update every 5 seconds
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            }
-        }).start();
-    }
-
-    private boolean isServerOnline(String ip, int port) {
-        try (Socket socket = new Socket()) {
-            socket.connect(new InetSocketAddress(ip, port), 100);
-            return true;
-        } catch (IOException e) {
-            return false;
-        }
-    }
-
     private void clientLog(String message) {
         String timestamp = LocalDateTime.now().format(formatter);
         System.out.println("[CLIENT " + timestamp + "] " + message);
@@ -227,4 +155,3 @@ public class GameClient extends JFrame {
         });
     }
 }
-

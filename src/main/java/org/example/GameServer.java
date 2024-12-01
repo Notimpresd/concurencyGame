@@ -5,7 +5,10 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.List;
-import java.util.concurrent.*;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import javax.swing.*;
 import javax.swing.border.Border;
 
@@ -15,7 +18,6 @@ public class GameServer {
     private static Random random = new Random();
     private static ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-    private static Semaphore clientSemaphore = new Semaphore(1);  // Semaphore to manage concurrent access to clients list
     private static final int WINNING_SCORE = 5; // Game ends when a player reaches 5 points
 
     // Centralized logging method
@@ -61,7 +63,6 @@ public class GameServer {
         }
     }
 
-
     private static void startGameSignals() {
         scheduler.scheduleAtFixedRate(() -> {
             if (!clients.isEmpty()) {
@@ -90,8 +91,6 @@ public class GameServer {
         private String clientIp;
         private int clientScore = 0;
         private boolean gameEnded = false;
-        private static int playerCounter = 0;
-        private static PriorityQueue<Integer> availablePlayerNumbers = new PriorityQueue<>();
 
         public ClientHandler(Socket socket) {
             this.socket = socket;
@@ -103,16 +102,8 @@ public class GameServer {
                 in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 out = new PrintWriter(socket.getOutputStream(), true);
 
-                // Assign a name based on the available numbers
-                synchronized (GameServer.class) {
-                    if (availablePlayerNumbers.isEmpty()) {
-                        playerCounter++;
-                        clientName = "Player_" + playerCounter;
-                    } else {
-                        int assignedNumber = availablePlayerNumbers.poll();
-                        clientName = "Player_" + assignedNumber;
-                    }
-                }
+                // Assign a unique name based on client count (removed room logic)
+                clientName = "Player_" + (clients.size() + 1);
                 out.println("NAME:" + clientName);
 
                 // Log client connection details
@@ -142,12 +133,8 @@ public class GameServer {
             } catch (IOException e) {
                 serverLog("Client " + clientName + " disconnected unexpectedly: " + e.getMessage());
             } finally {
-                // Log client disconnection and return the player's number to the pool
+                // Log client disconnection
                 serverLog("Client " + clientName + " disconnected.");
-                synchronized (GameServer.class) {
-                    int playerNumber = Integer.parseInt(clientName.split("_")[1]);
-                    availablePlayerNumbers.add(playerNumber);
-                }
                 clients.remove(this);
 
                 // Remove player from the GUI
@@ -174,30 +161,22 @@ public class GameServer {
                 client.sendMessage("WINNER:" + winner);
             }
 
-            // Update the winner score using semaphore to prevent concurrent modification
-            try {
-                clientSemaphore.acquire();
-                if (winner.equals(clientName)) {
-                    clientScore++;
-                    GameServerGUI.updatePlayerScore(clientName, clientScore);
+            // Update the winner score
+            if (winner.equals(clientName)) {
+                clientScore++;
+                GameServerGUI.updatePlayerScore(clientName, clientScore);
 
-                    // Check if the game ends
-                    if (clientScore >= WINNING_SCORE && !gameEnded) {
-                        gameEnded = true;
-                        serverLog(clientName + " wins the game!");
-                        for (ClientHandler clientHandler : clients) {
-                            clientHandler.sendMessage("GAME_OVER:" + clientName + " wins!");
-                        }
+                // Check if the game ends
+                if (clientScore >= WINNING_SCORE && !gameEnded) {
+                    gameEnded = true;
+                    serverLog(clientName + " wins the game!");
+                    for (ClientHandler clientHandler : clients) {
+                        clientHandler.sendMessage("GAME_OVER:" + clientName + " wins!");
                     }
                 }
-            } catch (InterruptedException e) {
-                serverLog("Error updating score: " + e.getMessage());
-            } finally {
-                clientSemaphore.release();
             }
         }
     }
-
 
     public static class GameServerGUI extends JFrame {
         private static final int WIDTH = 600;

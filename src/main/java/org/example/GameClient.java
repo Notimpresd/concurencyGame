@@ -196,7 +196,7 @@ public class GameClient extends JFrame {
                 }
                 SwingUtilities.invokeLater(roomListModel::refresh);
                 try {
-                    Thread.sleep(5000); // Update every 5 seconds
+                    Thread.sleep(1000); // Update every 5 seconds
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
@@ -223,58 +223,6 @@ public class GameClient extends JFrame {
             GameClient client = new GameClient();
             client.setVisible(true);
         });
-    }
-}
-
-class Room {
-    private String name;
-    private String ip;
-    private boolean online;
-
-    public Room(String name, String ip) {
-        this.name = name;
-        this.ip = ip;
-        this.online = false;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public String getIp() {
-        return ip;
-    }
-
-    public boolean isOnline() {
-        return online;
-    }
-
-    public void setOnline(boolean online) {
-        this.online = online;
-    }
-
-    @Override
-    public String toString() {
-        return name + " (" + (online ? "Online" : "Offline") + ")";
-    }
-}
-
-class RoomCellRenderer extends DefaultListCellRenderer {
-    @Override
-    public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-        Component component = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-        if (value instanceof Room) {
-            Room room = (Room) value;
-            setText(room.toString());
-            setForeground(room.isOnline() ? Color.GREEN.darker() : Color.RED);
-        }
-        return component;
-    }
-}
-class RoomListModel extends DefaultListModel<Room> {
-    public void refresh() {
-        // Notify listeners that the contents have changed
-        fireContentsChanged(this, 0, getSize() - 1);
     }
 }
 

@@ -16,7 +16,7 @@ public class GameServer {
     private static final int PORT = 5000;
     private static List<ClientHandler> clients = new CopyOnWriteArrayList<>();
     private static Random random = new Random();
-    private static ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private static ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(0);
     private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final int WINNING_SCORE = 5; // Game ends when a player reaches 5 points
 
@@ -103,7 +103,7 @@ public class GameServer {
                 out = new PrintWriter(socket.getOutputStream(), true);
 
                 // Assign a unique name based on client count (removed room logic)
-                clientName = "Player_" + (clients.size() + 1);
+                clientName = "Player_" + (clients.size());
                 out.println("NAME:" + clientName);
 
                 // Log client connection details

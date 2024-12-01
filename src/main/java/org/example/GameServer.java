@@ -88,8 +88,8 @@ public class GameServer {
         private String clientName;
         private String clientIp;
         private int clientScore = 0;
-        private JPanel playerPanel;  // Panel for GUI display
         private boolean gameEnded = false;  // Flag to check if the game has ended
+        private static int playerCounter = 0;
 
         public ClientHandler(Socket socket) {
             this.socket = socket;
@@ -101,8 +101,11 @@ public class GameServer {
                 in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 out = new PrintWriter(socket.getOutputStream(), true);
 
-                // Generate random name for client
-                clientName = "Player_" + UUID.randomUUID().toString().substring(0, 5);
+                // Assign a sequential name
+                synchronized (GameServer.class) {  // Ensure thread-safe access to the counter
+                    playerCounter++;
+                    clientName = "Player_" + playerCounter;
+                }
                 out.println("NAME:" + clientName);
 
                 // Log client connection details
@@ -110,7 +113,8 @@ public class GameServer {
 
                 // Update the GUI
                 GameServerGUI.addPlayerToPanel(clientName, clientScore);
-// Send the initial game state (GREEN or RED)
+
+                // Initial game state
                 if (!gameEnded) {
                     sendMessage("GREEN");
                 }

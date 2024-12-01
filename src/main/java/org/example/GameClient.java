@@ -196,7 +196,7 @@ public class GameClient extends JFrame {
                 }
                 SwingUtilities.invokeLater(roomListModel::refresh);
                 try {
-                    Thread.sleep(1000); // Update every 5 seconds
+                    Thread.sleep(100); // Update every 5 seconds
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
@@ -206,7 +206,7 @@ public class GameClient extends JFrame {
 
     private boolean isServerOnline(String ip, int port) {
         try (Socket socket = new Socket()) {
-            socket.connect(new InetSocketAddress(ip, port), 1000);
+            socket.connect(new InetSocketAddress(ip, port), 100);
             return true;
         } catch (IOException e) {
             return false;

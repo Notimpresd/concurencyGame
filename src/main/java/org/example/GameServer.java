@@ -197,6 +197,7 @@ public class GameServer {
         private static JPanel playerPanelContainer;
         private static Map<String, JPanel> playerPanels = new HashMap<>();
         private static Map<String, JLabel> scoreLabels = new HashMap<>();
+        private JPanel mainPanel;
 
         public GameServerGUI() {
             setTitle("Game Server");

@@ -29,14 +29,16 @@ public class GameServer {
             InetAddress serverAddress = InetAddress.getLocalHost();
             String serverIp = serverAddress.getHostAddress();
             serverLog("Server IP Address: " + serverIp);
+
+            // Update the GUI with the server IP
+            SwingUtilities.invokeLater(() -> {
+                GameServerGUI serverGUI = new GameServerGUI();
+                serverGUI.serverIpLabel.setText("Server IP: " + serverIp);  // Set the server IP label
+                serverGUI.setVisible(true);
+            });
         } catch (UnknownHostException e) {
             serverLog("Unable to retrieve server IP address.");
         }
-
-        SwingUtilities.invokeLater(() -> {
-            GameServerGUI serverGUI = new GameServerGUI();
-            serverGUI.setVisible(true);
-        });
 
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
             serverLog("Game Server started on port " + PORT);
@@ -80,14 +82,14 @@ public class GameServer {
         }, 5, 10, TimeUnit.SECONDS);
     }
 
-    private static class ClientHandler implements Runnable {
+    public static class ClientHandler implements Runnable {
         private Socket socket;
         private BufferedReader in;
         private PrintWriter out;
         private String clientName;
         private String clientIp;
         private int clientScore = 0;
-        private boolean gameEnded = false;  // Flag to check if the game has ended
+        private boolean gameEnded = false;
         private static int playerCounter = 0;
         private static PriorityQueue<Integer> availablePlayerNumbers = new PriorityQueue<>();
 
@@ -116,8 +118,11 @@ public class GameServer {
                 // Log client connection details
                 serverLog("Client " + clientName + " connected from IP: " + clientIp);
 
-                // Update the GUI
+                // Update the GUI with the player name and score
                 GameServerGUI.addPlayerToPanel(clientName, clientScore);
+
+                // Increment the player count
+                SwingUtilities.invokeLater(() -> GameServerGUI.updatePlayersCount(clients.size()));
 
                 // Initial game state
                 if (!gameEnded) {
@@ -148,6 +153,9 @@ public class GameServer {
                 // Remove player from the GUI
                 GameServerGUI.removePlayerFromPanel(clientName);
 
+                // Decrement the player count
+                SwingUtilities.invokeLater(() -> GameServerGUI.updatePlayersCount(clients.size()));
+
                 try {
                     socket.close();
                 } catch (IOException e) {
@@ -155,7 +163,6 @@ public class GameServer {
                 }
             }
         }
-
 
         public void sendMessage(String message) {
             out.println(message);
@@ -191,12 +198,15 @@ public class GameServer {
         }
     }
 
+
     public static class GameServerGUI extends JFrame {
         private static final int WIDTH = 600;
-        private static final int HEIGHT = 150;
+        private static final int HEIGHT = 300;
         private static JPanel playerPanelContainer;
         private static Map<String, JPanel> playerPanels = new HashMap<>();
         private static Map<String, JLabel> scoreLabels = new HashMap<>();
+        public static JLabel serverIpLabel;  // Declare a JLabel to display the server IP
+        public static JLabel playersCountLabel;  // Declare a JLabel to display the number of players
 
         public GameServerGUI() {
             setTitle("Game Server");
@@ -205,9 +215,22 @@ public class GameServer {
             setLayout(new BorderLayout());
             setAlwaysOnTop(true);
 
+            // Add a panel for the server IP label and player count label
+            JPanel ipPanel = new JPanel();
+            serverIpLabel = new JLabel("Server IP: ");
+            playersCountLabel = new JLabel("     Players Connected: 0");
+            ipPanel.add(serverIpLabel);
+            ipPanel.add(playersCountLabel);
+            add(ipPanel, BorderLayout.NORTH);
+
             playerPanelContainer = new JPanel();
             playerPanelContainer.setLayout(new GridLayout(0, 3));  // Three columns for player panels
             add(new JScrollPane(playerPanelContainer), BorderLayout.CENTER);
+        }
+
+        // Method to update the number of players connected
+        public static void updatePlayersCount(int count) {
+            playersCountLabel.setText("Players Connected: " + count);
         }
 
         public static void addPlayerToPanel(String playerName, int initialScore) {

@@ -25,7 +25,6 @@ public class GameServer {
     }
 
     public static void main(String[] args) {
-        // Print the server's local IP address
         try {
             InetAddress serverAddress = InetAddress.getLocalHost();
             String serverIp = serverAddress.getHostAddress();
@@ -39,8 +38,7 @@ public class GameServer {
             serverGUI.setVisible(true);
         });
 
-        try {
-            ServerSocket serverSocket = new ServerSocket(PORT);
+        try (ServerSocket serverSocket = new ServerSocket(PORT)) {
             serverLog("Game Server started on port " + PORT);
 
             // Start the game signal scheduler
@@ -60,6 +58,7 @@ public class GameServer {
             e.printStackTrace();
         }
     }
+
 
     private static void startGameSignals() {
         scheduler.scheduleAtFixedRate(() -> {
@@ -90,6 +89,7 @@ public class GameServer {
         private int clientScore = 0;
         private boolean gameEnded = false;  // Flag to check if the game has ended
         private static int playerCounter = 0;
+        private static PriorityQueue<Integer> availablePlayerNumbers = new PriorityQueue<>();
 
         public ClientHandler(Socket socket) {
             this.socket = socket;
@@ -101,10 +101,15 @@ public class GameServer {
                 in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 out = new PrintWriter(socket.getOutputStream(), true);
 
-                // Assign a sequential name
-                synchronized (GameServer.class) {  // Ensure thread-safe access to the counter
-                    playerCounter++;
-                    clientName = "Player_" + playerCounter;
+                // Assign a name based on the available numbers
+                synchronized (GameServer.class) {
+                    if (availablePlayerNumbers.isEmpty()) {
+                        playerCounter++;
+                        clientName = "Player_" + playerCounter;
+                    } else {
+                        int assignedNumber = availablePlayerNumbers.poll();
+                        clientName = "Player_" + assignedNumber;
+                    }
                 }
                 out.println("NAME:" + clientName);
 
@@ -132,19 +137,25 @@ public class GameServer {
             } catch (IOException e) {
                 serverLog("Client " + clientName + " disconnected unexpectedly: " + e.getMessage());
             } finally {
-                // Log client disconnection
-                serverLog("Client " + clientName + " disconnected. Total players: " + (clients.size() - 1));
+                // Log client disconnection and return the player's number to the pool
+                serverLog("Client " + clientName + " disconnected.");
+                synchronized (GameServer.class) {
+                    int playerNumber = Integer.parseInt(clientName.split("_")[1]);
+                    availablePlayerNumbers.add(playerNumber);
+                }
                 clients.remove(this);
+
+                // Remove player from the GUI
+                GameServerGUI.removePlayerFromPanel(clientName);
+
                 try {
                     socket.close();
                 } catch (IOException e) {
                     serverLog("Error closing socket for " + clientName + ": " + e.getMessage());
                 }
-
-                // Remove player from the GUI
-                GameServerGUI.removePlayerFromPanel(clientName);
             }
         }
+
 
         public void sendMessage(String message) {
             out.println(message);

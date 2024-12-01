@@ -46,6 +46,7 @@ public class GameClient extends JFrame {
         JLabel titleLabel = new JLabel("Available Rooms", SwingConstants.CENTER);
         titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
         roomSelectionPanel.add(titleLabel, BorderLayout.NORTH);
+        setAlwaysOnTop(true);
 
         roomListModel = new RoomListModel();
         JList<Room> roomList = new JList<>(roomListModel);
@@ -86,6 +87,7 @@ public class GameClient extends JFrame {
 
     private void initializeGameUI() {
         JPanel gamePanel = new JPanel(new BorderLayout());
+        setAlwaysOnTop(true);
 
         gameButton = new JButton("Wait for Game");
         gameButton.setBackground(Color.RED);

@@ -13,6 +13,8 @@ public class GameClient extends JFrame {
     private JLabel nameLabel;
     private int score = 0;
     private boolean canClick = false;
+    private JLabel localIpLabel;
+    private JLabel serverIpLabel;
 
     private Socket socket;
     private BufferedReader in;
@@ -48,9 +50,14 @@ public class GameClient extends JFrame {
         scoreLabel = new JLabel("Score: 0", SwingConstants.CENTER);
         nameLabel = new JLabel("Name: Connecting...", SwingConstants.CENTER);
 
-        JPanel northPanel = new JPanel(new GridLayout(2, 1));
+        localIpLabel = new JLabel("Local IP: Connecting...", SwingConstants.CENTER);
+        serverIpLabel = new JLabel("Server IP: Connecting...", SwingConstants.CENTER);
+
+        JPanel northPanel = new JPanel(new GridLayout(4, 1));
         northPanel.add(scoreLabel);
         northPanel.add(nameLabel);
+        northPanel.add(localIpLabel);
+        northPanel.add(serverIpLabel);
         gamePanel.add(northPanel, BorderLayout.NORTH);
 
         gamePanel.add(gameButton, BorderLayout.CENTER);
@@ -85,14 +92,22 @@ public class GameClient extends JFrame {
             in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             out = new PrintWriter(socket.getOutputStream(), true);
 
-            clientLog("Connected to server. Local port: " + socket.getLocalPort());
+            // Update labels in GUI
+            String localIp = socket.getLocalAddress().getHostAddress();
+            SwingUtilities.invokeLater(() -> {
+                localIpLabel.setText("Local IP: " + localIp);
+                serverIpLabel.setText("Server IP: " + serverIp);
+            });
+
+            clientLog("Connected to server " + serverIp + ":" + PORT);
+            clientLog("Client local IP address: " + localIp);
+
             new Thread(this::listenForServerMessages).start();
         } catch (IOException e) {
             clientLog("Connection failed: " + e.getMessage());
             JOptionPane.showMessageDialog(this, "Could not connect to server: " + e.getMessage());
         }
     }
-
     private void disconnectFromServer() {
         try {
             if (socket != null) {

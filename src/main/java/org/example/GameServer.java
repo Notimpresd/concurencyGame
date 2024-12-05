@@ -110,7 +110,7 @@ public class GameServer {
                 serverLog("Client " + clientName + " connected from IP: " + clientIp);
 
                 // Update the GUI with the player name and score
-                GameServerGUI.addPlayerToPanel(clientName, clientScore);
+                GameServerGUI.addPlayerToPanel(clientName, clientScore, clientIp);
 
                 // Increment the player count
                 SwingUtilities.invokeLater(() -> GameServerGUI.updatePlayersCount(clients.size()));
@@ -212,22 +212,27 @@ public class GameServer {
             playersCountLabel.setText("Players Connected: " + count);
         }
 
-        public static void addPlayerToPanel(String playerName, int initialScore) {
+        public static void addPlayerToPanel(String playerName, int initialScore, String clientIp) {
             JPanel playerPanel = new JPanel();
             playerPanel.setLayout(new BoxLayout(playerPanel, BoxLayout.Y_AXIS));
             playerPanel.setBorder(new RoundedBorder(15));  // Rounded corners
             playerPanel.setBackground(Color.CYAN);
             playerPanel.setPreferredSize(new Dimension(150, 100));  // Size for each player panel
 
-            JLabel playerLabel = new JLabel(playerName);
+            JLabel playerLabel = new JLabel("Name: " + playerName);
             playerLabel.setFont(new Font("Arial", Font.BOLD, 14));
             playerLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+            JLabel ipLabel = new JLabel("IP: " + clientIp);
+            ipLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+            ipLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
             JLabel scoreLabel = new JLabel("Score: " + initialScore);
             scoreLabel.setFont(new Font("Arial", Font.PLAIN, 12));
             scoreLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
             playerPanel.add(playerLabel);
+            playerPanel.add(ipLabel);  // Add the IP label to the panel
             playerPanel.add(scoreLabel);
             playerPanelContainer.add(playerPanel);
 
@@ -237,6 +242,7 @@ public class GameServer {
             playerPanelContainer.revalidate();
             playerPanelContainer.repaint();
         }
+
 
         public static void updatePlayerScore(String playerName, int newScore) {
             JLabel scoreLabel = scoreLabels.get(playerName);

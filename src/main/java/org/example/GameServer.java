@@ -1,3 +1,4 @@
+
 import java.awt.*;
 import java.io.*;
 import java.net.*;
@@ -5,17 +6,14 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.List;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import javax.swing.*;
+import javax.swing.Timer;
 import javax.swing.border.Border;
-
 public class GameServer {
     private static final int PORT = 5000;
     private static List<ClientHandler> clients = new CopyOnWriteArrayList<>();
-    private static Random random = new Random();
+    private static Queue<String> requestQueue = new LinkedList<>();
     private static ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(0);
     private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private static final int WINNING_SCORE = 5; // Game ends when a player reaches 5 points
@@ -45,9 +43,6 @@ public class GameServer {
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
             serverLog("Game Server started on port " + PORT);
 
-            // Start the game signal scheduler
-            startGameSignals();
-
             while (true) {
                 Socket clientSocket = serverSocket.accept();
                 String clientIp = clientSocket.getInetAddress().getHostAddress();
@@ -63,38 +58,16 @@ public class GameServer {
         }
     }
 
-    private static void startGameSignals() {
-        scheduler.scheduleAtFixedRate(() -> {
-            if (!clients.isEmpty()) {
-                // Delay between 3-7 seconds
-                int delay = random.nextInt(4000) + 3000;
-                try {
-                    Thread.sleep(delay);
-                } catch (InterruptedException e) {
-                    serverLog("Game signal interruption: " + e.getMessage());
-                }
-
-                // Send green signal to all clients
-                serverLog("Sending GREEN signal to all clients");
-                for (ClientHandler client : clients) {
-                    client.sendMessage("GREEN");
-                }
-            }
-        }, 5, 10, TimeUnit.SECONDS);
-    }
-
     public static class ClientHandler implements Runnable {
         private Socket socket;
         private BufferedReader in;
         private PrintWriter out;
         private String clientName;
-        private String clientIp;
         private int clientScore = 0;
         private boolean gameEnded = false;
 
         public ClientHandler(Socket socket) {
             this.socket = socket;
-            this.clientIp = socket.getInetAddress().getHostAddress();
         }
 
         public void run() {
@@ -102,51 +75,36 @@ public class GameServer {
                 in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
                 out = new PrintWriter(socket.getOutputStream(), true);
 
-                // Assign a unique name based on client count (removed room logic)
+                // Assign a unique name based on client count
                 clientName = "Player_" + (clients.size());
                 out.println("NAME:" + clientName);
+                serverLog("Client " + clientName + " connected.");
 
-                // Log client connection details
-                serverLog("Client " + clientName + " connected from IP: " + clientIp);
-
-                // Update the GUI with the player name and score
-                GameServerGUI.addPlayerToPanel(clientName, clientScore, clientIp);
-
-                // Increment the player count
-                SwingUtilities.invokeLater(() -> GameServerGUI.updatePlayersCount(clients.size()));
-
-                // Initial game state
-                if (!gameEnded) {
-                    sendMessage("GREEN");
-                }
+                // Update GUI with player name and score
+                SwingUtilities.invokeLater(() -> GameServerGUI.addPlayerToPanel(clientName, clientScore));
 
                 String inputLine;
                 while ((inputLine = in.readLine()) != null) {
                     if (inputLine.equals("CLICK") && !gameEnded) {
-                        // Log client click
-                        serverLog("Client " + clientName + " clicked the button");
+                        // Add request to queue
+                        synchronized (requestQueue) {
+                            requestQueue.add(clientName);
+                        }
+                        serverLog(clientName + " added to queue");
 
-                        // Broadcast the winner
-                        broadcastWinner(clientName);
+                        // Update GUI with the current queue
+                        SwingUtilities.invokeLater(GameServerGUI::updateRequestQueue);
                     }
                 }
             } catch (IOException e) {
-                serverLog("Client " + clientName + " disconnected unexpectedly: " + e.getMessage());
+                serverLog("Client " + clientName + " disconnected unexpectedly.");
             } finally {
-                // Log client disconnection
-                serverLog("Client " + clientName + " disconnected.");
                 clients.remove(this);
-
-                // Remove player from the GUI
                 GameServerGUI.removePlayerFromPanel(clientName);
-
-                // Decrement the player count
-                SwingUtilities.invokeLater(() -> GameServerGUI.updatePlayersCount(clients.size()));
-
                 try {
                     socket.close();
                 } catch (IOException e) {
-                    serverLog("Error closing socket for " + clientName + ": " + e.getMessage());
+                    serverLog("Error closing socket for " + clientName);
                 }
             }
         }
@@ -154,137 +112,109 @@ public class GameServer {
         public void sendMessage(String message) {
             out.println(message);
         }
-
-        private void broadcastWinner(String winner) {
-            serverLog("Declaring winner: " + winner);
-            for (ClientHandler client : clients) {
-                client.sendMessage("WINNER:" + winner);
-            }
-
-            // Update the winner score
-            if (winner.equals(clientName)) {
-                clientScore++;
-                GameServerGUI.updatePlayerScore(clientName, clientScore);
-
-                // Check if the game ends
-                if (clientScore >= WINNING_SCORE && !gameEnded) {
-                    gameEnded = true;
-                    serverLog(clientName + " wins the game!");
-                    for (ClientHandler clientHandler : clients) {
-                        clientHandler.sendMessage("GAME_OVER:" + clientName + " wins!");
-                    }
-                }
-            }
-        }
     }
 
     public static class GameServerGUI extends JFrame {
         private static final int WIDTH = 600;
-        private static final int HEIGHT = 300;
+        private static final int HEIGHT = 400;
         private static JPanel playerPanelContainer;
-        private static Map<String, JPanel> playerPanels = new HashMap<>();
         private static Map<String, JLabel> scoreLabels = new HashMap<>();
-        public static JLabel serverIpLabel;  // Declare a JLabel to display the server IP
-        public static JLabel playersCountLabel;  // Declare a JLabel to display the number of players
+        private static JLabel serverIpLabel;
+        private static JLabel playersCountLabel;
+        private static JList<String> requestList;
+        private static DefaultListModel<String> listModel = new DefaultListModel<>();
+        private static JLabel timerLabel;
+        private static Timer timer;
 
         public GameServerGUI() {
             setTitle("Game Server");
             setSize(WIDTH, HEIGHT);
             setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             setLayout(new BorderLayout());
-            setAlwaysOnTop(true);
 
-            // Add a panel for the server IP label and player count label
+            // Panel for IP and player count
             JPanel ipPanel = new JPanel();
             serverIpLabel = new JLabel("Server IP: ");
-            playersCountLabel = new JLabel("     Players Connected: 0");
+            playersCountLabel = new JLabel("Players Connected: 0");
             ipPanel.add(serverIpLabel);
             ipPanel.add(playersCountLabel);
             add(ipPanel, BorderLayout.NORTH);
 
+            // Player information panel
             playerPanelContainer = new JPanel();
-            playerPanelContainer.setLayout(new GridLayout(0, 3));  // Three columns for player panels
+            playerPanelContainer.setLayout(new GridLayout(0, 3));
             add(new JScrollPane(playerPanelContainer), BorderLayout.CENTER);
+
+            // Request queue panel
+            JPanel requestPanel = new JPanel(new BorderLayout());
+            requestPanel.setBorder(BorderFactory.createTitledBorder("Concurrency List"));
+            requestList = new JList<>(listModel);
+            requestPanel.add(new JScrollPane(requestList), BorderLayout.CENTER);
+            add(requestPanel, BorderLayout.EAST);
+
+            // Timer label
+            timerLabel = new JLabel("Time Left: 5", SwingConstants.CENTER);
+            add(timerLabel, BorderLayout.SOUTH);
+
+            // Start timer when a winner is declared
+            timer = new Timer(1000, e -> {
+                int timeLeft = Integer.parseInt(timerLabel.getText().split(": ")[1]);
+                if (timeLeft > 0) {
+                    timerLabel.setText("Time Left: " + (timeLeft - 1));
+                } else {
+                    timer.stop();
+                    resetQueue();
+                }
+            });
         }
 
-        // Method to update the number of players connected
         public static void updatePlayersCount(int count) {
             playersCountLabel.setText("Players Connected: " + count);
         }
 
-        public static void addPlayerToPanel(String playerName, int initialScore, String clientIp) {
+        public static void addPlayerToPanel(String playerName, int initialScore) {
             JPanel playerPanel = new JPanel();
             playerPanel.setLayout(new BoxLayout(playerPanel, BoxLayout.Y_AXIS));
-            playerPanel.setBorder(new RoundedBorder(15));  // Rounded corners
             playerPanel.setBackground(Color.CYAN);
-            playerPanel.setPreferredSize(new Dimension(150, 100));  // Size for each player panel
+            playerPanel.setPreferredSize(new Dimension(150, 100));
 
             JLabel playerLabel = new JLabel("Name: " + playerName);
-            playerLabel.setFont(new Font("Arial", Font.BOLD, 14));
             playerLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-            JLabel ipLabel = new JLabel("IP: " + clientIp);
-            ipLabel.setFont(new Font("Arial", Font.PLAIN, 12));
-            ipLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
             JLabel scoreLabel = new JLabel("Score: " + initialScore);
-            scoreLabel.setFont(new Font("Arial", Font.PLAIN, 12));
             scoreLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
 
             playerPanel.add(playerLabel);
-            playerPanel.add(ipLabel);  // Add the IP label to the panel
             playerPanel.add(scoreLabel);
             playerPanelContainer.add(playerPanel);
 
-            playerPanels.put(playerName, playerPanel);
             scoreLabels.put(playerName, scoreLabel);
 
             playerPanelContainer.revalidate();
             playerPanelContainer.repaint();
         }
 
-
-        public static void updatePlayerScore(String playerName, int newScore) {
-            JLabel scoreLabel = scoreLabels.get(playerName);
-            if (scoreLabel != null) {
-                scoreLabel.setText("Score: " + newScore);
-            }
-        }
-
         public static void removePlayerFromPanel(String playerName) {
-            JPanel playerPanel = playerPanels.get(playerName);
-            if (playerPanel != null) {
-                playerPanelContainer.remove(playerPanel);
-                playerPanels.remove(playerName);
-                scoreLabels.remove(playerName);
-            }
+            scoreLabels.remove(playerName);
             playerPanelContainer.revalidate();
             playerPanelContainer.repaint();
         }
-    }
 
-    // Custom border class for rounded corners
-    public static class RoundedBorder implements Border {
-        private int radius;
-
-        public RoundedBorder(int radius) {
-            this.radius = radius;
+        public static void updateRequestQueue() {
+            listModel.clear();
+            synchronized (requestQueue) {
+                for (String request : requestQueue) {
+                    listModel.addElement(request);
+                }
+            }
         }
 
-        @Override
-        public Insets getBorderInsets(Component c) {
-            return new Insets(radius, radius, radius, radius);
-        }
-
-        @Override
-        public boolean isBorderOpaque() {
-            return true;
-        }
-
-        @Override
-        public void paintBorder(Component c, Graphics g, int x, int y, int width, int height) {
-            g.setColor(Color.lightGray);
-            g.fillRoundRect(x, y, width - 1, height - 1, radius, radius);
+        public static void resetQueue() {
+            listModel.clear();
+            synchronized (requestQueue) {
+                requestQueue.clear();
+            }
+            timerLabel.setText("Time Left: 5");
         }
     }
 }

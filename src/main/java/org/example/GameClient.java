@@ -19,7 +19,7 @@ public class GameClient extends JFrame {
     private Socket socket;
     private BufferedReader in;
     private PrintWriter out;
-    private String serverIp = "10.31.5.52"; // Set a predefined server IP
+    private String serverIp = "10.198.100.199"; // Set a predefined server IP
     private static final int PORT = 5000;
     private static DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     private CardLayout cardLayout;
